@@ -1,7 +1,9 @@
 # Iraki Kurdisztán – hátizsákos körút (2026. nov. 8–15.)
 
 **Térkép:** [Irak_utvonal_terkep.png](Irak_utvonal_terkep.png) (7591×4113 px, nagyítható) · kisebb fájl: [Irak_utvonal_terkep.jpg](Irak_utvonal_terkep.jpg)
-A térkép újragenerálható: `python terkep_forras/terkep.py`
+A térkép (angol feliratokkal) újragenerálható: `python terkep_forras/terkep.py`
+
+![Útvonaltérkép](Irak_utvonal_terkep.jpg)
 
 - **Érkezés:** Szulejmánijja (ISU), **nov. 8. (vasárnap) 02:30**
 - **Indulás:** Erbil (EBL), **nov. 15. (vasárnap) 06:30**
