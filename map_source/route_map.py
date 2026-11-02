@@ -1,10 +1,10 @@
-"""Iraki Kurdisztán útvonal-térkép generátor.
+"""Iraqi Kurdistan route map generator.
 
-Futtatás:  python terkep.py
-Kimenet:   ../Irak_utvonal_terkep.png (és .jpg)
+Run:     python route_map.py
+Output:  ../Iraq_route_map.png (and .jpg)
 
-Háttér: Esri World Topo Map csempék (© Esri és adatszolgáltatói)
-Útvonal: OSRM (router.project-osrm.org) valós úthálózaton számolva.
+Basemap: Esri World Topo Map tiles (© Esri and its data providers)
+Routing: OSRM (router.project-osrm.org), computed on the real road network.
 """
 import io, json, math, os, sys, time, urllib.request
 from PIL import Image, ImageDraw, ImageFont
@@ -17,7 +17,7 @@ os.makedirs(CACHE, exist_ok=True)
 UA = {"User-Agent": "personal-itinerary-map/1.0"}
 TS = 256
 
-# ---------------------------------------------------------------- pontok
+# ---------------------------------------------------------------- points
 P = {
     "SUL":     (35.5617, 45.3168),
     "SULI":    (35.5622, 45.4254),
@@ -53,7 +53,7 @@ DAYS = [
     ("7", "Nov 14 (Sat)", "Rawanduz → Bekhal → Shaqlawa → Erbil → airport", ["RAWANDUZ", "BEKHAL", "SHAQLAWA", "ERBIL", "AINKAWA", "EBL"]),
 ]
 
-# (kulcs, sorszám, felirat-sorok, irány dx,dy a címkéhez, kiemelt?)
+# (key, number, label lines, label direction dx,dy, highlighted?)
 SIGHTS = [
     ("SULI", "1", ["Sulaymaniyah", "Amna Suraka, Slemani Museum, bazaar"], (1, 1), False),
     ("GOYZHA", "2", ["Goyzha Mountain", "sunset viewpoint"], (1, -1), False),
@@ -89,7 +89,7 @@ AIRPORTS = [
     ("EBL", ["DEPARTURE – Erbil (EBL)", "Nov 15, 06:30"], (-1, -1)),
 ]
 
-# ---------------------------------------------------------------- színek, fontok
+# ---------------------------------------------------------------- colours, fonts
 BLUE = (21, 101, 192)
 BLUE_DARK = (13, 60, 130)
 ORANGE = (230, 110, 20)
@@ -104,7 +104,7 @@ def F(name, size):
     return ImageFont.truetype(os.path.join(FD, name), size)
 
 
-# ---------------------------------------------------------------- vetület, csempék
+# ---------------------------------------------------------------- projection, tiles
 def px(lat, lon, z):
     n = 2 ** z * TS
     x = (lon + 180) / 360 * n
@@ -142,7 +142,7 @@ def basemap(z, lat_s, lon_w, lat_n, lon_e):
     return img, proj
 
 
-# ---------------------------------------------------------------- útvonal
+# ---------------------------------------------------------------- route
 def route(keys):
     fn = os.path.join(CACHE, "route_" + "_".join(keys) + ".json")
     if os.path.exists(fn):
@@ -157,13 +157,13 @@ def route(keys):
     return res
 
 
-# ---------------------------------------------------------------- rajzoló segédek
+# ---------------------------------------------------------------- drawing helpers
 def halo_text(d, xy, text, font, fill=INK, anchor="la", sw=6):
     d.text(xy, text, font=font, fill=fill, anchor=anchor, stroke_width=sw, stroke_fill=WHITE)
 
 
 def label_block(d, x, y, lines, fonts, direction, gap=34, fills=None):
-    """Címke a ponthoz képest direction=(dx,dy) irányban (-1/0/1)."""
+    """Label placed relative to the point in direction=(dx,dy) (-1/0/1)."""
     dx, dy = direction
     sizes = [d.textbbox((0, 0), t, font=f, stroke_width=6) for t, f in zip(lines, fonts)]
     w = max(b[2] - b[0] for b in sizes)
@@ -217,7 +217,7 @@ def polyline(d, pts, width, color):
         d.ellipse((x - r, y - r, x + r, y + r), fill=color)
 
 
-# ---------------------------------------------------------------- fő térkép
+# ---------------------------------------------------------------- main map
 def main():
     Z = 11
     img, proj = basemap(Z, 35.02, 42.55, 37.30, 46.32)
@@ -227,7 +227,7 @@ def main():
 
     routes = [route(d[3]) for d in DAYS]
 
-    # útvonal: fehér kontúr + kék
+    # route: white casing + blue
     ov = Image.new("RGBA", img.size, (0, 0, 0, 0))
     d = ImageDraw.Draw(ov)
     for r in routes:
@@ -247,7 +247,7 @@ def main():
     f_sym = F("seguisym.ttf", 40)
     f_day = F("segoeuib.ttf", 34)
 
-    # nap-jelölők az útvonalon (az adott nap geometriájának közepén)
+    # day markers on the route (along that day's geometry)
     day_pos_override = {"1": 0.0, "2": 0.15, "3": 0.62, "4": 0.2, "5": 0.5, "6": 0.3, "7": 0.62}
     day_px_offset = {"1": (-130, 60)}
     for (n, date, _, _), r in zip(DAYS, routes):
@@ -262,7 +262,7 @@ def main():
         d.rounded_rectangle((x - w / 2, y - h / 2, x + w / 2, y + h / 2), radius=h / 2, fill=BLUE_DARK)
         d.text((x, y), txt, font=f_day, fill=WHITE, anchor="mm")
 
-    # szállások
+    # overnight stays
     for k, lines, (ox, oy) in SLEEPS:
         x, y = proj(*P[k])
         sx, sy = x + ox, y + oy
@@ -271,13 +271,13 @@ def main():
         label_block(d, sx, sy, lines, [F("segoeuib.ttf", 30), F("segoeui.ttf", 28)],
                     (1 if ox >= 0 else -1, 0), gap=40, fills=[PURPLE, PURPLE])
 
-    # repterek
+    # airports
     for k, lines, dirn in AIRPORTS:
         x, y = proj(*P[k])
         plane_marker(d, x, y, 28, F("seguisym.ttf", 34))
         label_block(d, x, y, lines, [F("segoeuib.ttf", 34), F("segoeuib.ttf", 32)], dirn, gap=42, fills=[RED, RED])
 
-    # látnivalók
+    # sights
     for k, n, lines, dirn, hl in SIGHTS:
         x, y = proj(*P[k])
         if hl:
@@ -288,11 +288,11 @@ def main():
             num_marker(d, x, y, n, 24, ORANGE, f_num)
             label_block(d, x, y, lines, [f_lab, f_sub], dirn, gap=36)
 
-    # forrásmegjelölés
+    # attribution
     halo_text(d, (20, H - 50), "Basemap: © Esri, HERE, Garmin, OpenStreetMap contributors · Routing: OSRM / OpenStreetMap",
               F("segoeui.ttf", 28), fill=(80, 80, 80))
 
-    # ----------------------------------------------------------- jobb oldali panel
+    # ----------------------------------------------------------- right-hand panel
     PW = 2100
     canvas = Image.new("RGB", (W + PW, H), (250, 248, 244))
     canvas.paste(img.convert("RGB"), (0, 0))
@@ -303,7 +303,7 @@ def main():
     c.text((X, y), "Backpacking loop · 8–15 November 2026", font=F("segoeui.ttf", 56), fill=(70, 70, 70)); y += 100
     c.line((X, y, W + PW - 80, y), fill=(200, 195, 185), width=4); y += 40
 
-    # jelmagyarázat
+    # legend
     c.text((X, y), "Legend", font=F("segoeuib.ttf", 52), fill=INK); y += 85
     c.line((X, y + 18, X + 120, y + 18), fill=WHITE, width=22)
     c.line((X, y + 18, X + 120, y + 18), fill=BLUE, width=12)
@@ -321,7 +321,7 @@ def main():
     c.text((X + 160, y - 4), "Day marker on the route", font=F("segoeui.ttf", 44), fill=INK); y += 100
     c.line((X, y, W + PW - 80, y), fill=(200, 195, 185), width=4); y += 40
 
-    # napi bontás
+    # day by day
     c.text((X, y), "Day by day", font=F("segoeuib.ttf", 52), fill=INK); y += 85
     total = 0
     for (n, date, title, _), r in zip(DAYS, routes):
@@ -335,7 +335,7 @@ def main():
     c.text((X, y), f"Total approx. {total:.0f} km (pure driving time, no stops)", font=F("segoeuib.ttf", 40), fill=INK); y += 90
     c.line((X, y, W + PW - 80, y), fill=(200, 195, 185), width=4); y += 40
 
-    # városi kivágatok
+    # city insets
     insets = [
         ("Sulaymaniyah centre", 15, (35.5525, 45.4180, 35.5680, 45.4460), [
             ((35.5622, 45.4254), "Amna Suraka (Red Security)", (1, -1)),
@@ -377,7 +377,7 @@ def main():
         ix += iw + 40
         bottom = max(bottom, iy0 + 70 + im.height)
 
-    # emlékeztető
+    # reminders
     y = bottom + 70
     c.text((X, y), "Remember", font=F("segoeuib.ttf", 52), fill=INK); y += 85
     for t in [
@@ -390,9 +390,9 @@ def main():
         c.text((X, y), "•  " + t, font=F("segoeui.ttf", 40), fill=INK); y += 62
     print("panel bottom", y)
 
-    out = os.path.join(OUT_DIR, "Irak_utvonal_terkep.png")
+    out = os.path.join(OUT_DIR, "Iraq_route_map.png")
     canvas.save(out, optimize=True)
-    canvas.save(os.path.join(OUT_DIR, "Irak_utvonal_terkep.jpg"), quality=90)
+    canvas.save(os.path.join(OUT_DIR, "Iraq_route_map.jpg"), quality=90)
     for (n, date, title, _), r in zip(DAYS, routes):
         print(n, date, title, f"{r['km']:.0f} km {r['h']:.1f} h")
     print("saved", out, canvas.size)
